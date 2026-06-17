@@ -1,0 +1,16 @@
+pandas>=2.0
+polars>=0.20
+numpy
+scipy
+scikit-learn
+biopython
+biotite
+requests
+plotly
+streamlit
+py3Dmol
+matplotlib
+seaborn
+tqdm
+jupyter
+pyarrow
