@@ -95,7 +95,13 @@ def load_dms_scores(
     -------
     DataFrame with columns:
         protein_id, dms_id, mutant, position, wt_aa, mut_aa,
-        experimental_fitness, <model_col_1>, ..., <model_col_N>
+        experimental_fitness, DMS_score_bin,
+        <model_col_1>, ..., <model_col_N>
+
+    DMS_score_bin is ProteinGym's curator-assigned binary ground-truth label
+    (experimental_fitness thresholded at an assay-specific cutoff — see
+    DMS_binarization_cutoff in DMS_substitutions.csv — not a generic median
+    split).
     """
     data_dir = Path(data_dir)
     scores_dir = _find_scores_dir(data_dir)
@@ -154,14 +160,15 @@ def load_dms_scores(
     # Identify model columns (everything not in the fixed set)
     model_cols = [c for c in combined.columns if c not in _NON_MODEL_COLS]
 
-    # Drop bulky / non-model columns
-    combined = combined.drop(
-        columns=["mutated_sequence", "DMS_score_bin"], errors="ignore"
-    )
+    # Drop bulky non-model columns (keep DMS_score_bin — it's ground truth)
+    combined = combined.drop(columns=["mutated_sequence"], errors="ignore")
+    if "DMS_score_bin" not in combined.columns:
+        combined["DMS_score_bin"] = pd.NA
+    combined["DMS_score_bin"] = combined["DMS_score_bin"].astype("Int8")
 
     # Final column order
     fixed = ["protein_id", "dms_id", "mutant", "position", "wt_aa", "mut_aa",
-             "experimental_fitness"]
+             "experimental_fitness", "DMS_score_bin"]
     combined = combined[fixed + model_cols]
 
     # Print summary
