@@ -197,3 +197,115 @@ def cluster_showdown_by_assay(
         showdown.insert(0, "dms_id", dms_id)
         parts.append(showdown)
     return pd.concat(parts, ignore_index=True)
+
+
+def _fast_mcc(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Vectorized MCC for 0/1 int arrays, fast enough to call thousands of times."""
+    tp = np.sum((y_true == 1) & (y_pred == 1), dtype=np.int64)
+    tn = np.sum((y_true == 0) & (y_pred == 0), dtype=np.int64)
+    fp = np.sum((y_true == 0) & (y_pred == 1), dtype=np.int64)
+    fn = np.sum((y_true == 1) & (y_pred == 0), dtype=np.int64)
+    denom = np.sqrt(float(tp + fp) * float(tp + fn) * float(tn + fp) * float(tn + fn))
+    if denom == 0:
+        return 0.0
+    return float((tp * tn - fp * fn) / denom)
+
+
+def bootstrap_cluster_mcc(
+    df: pd.DataFrame,
+    cluster_votes: pd.DataFrame,
+    label_col: str = "DMS_score_bin",
+    n_boot: int = 1000,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Bootstrap CI for each cluster's overall MCC.
+
+    Resamples variants with replacement n_boot times per cluster (only
+    variants where the label and that cluster's majority vote are both
+    present) and recomputes MCC on each resample.
+
+    Returns
+    -------
+    DataFrame with columns
+    [cluster, mcc_mean, mcc_median, ci_lower_95, ci_upper_95, bootstrap_values],
+    where bootstrap_values holds the full length-n_boot array of resampled MCCs.
+    """
+    rng = np.random.default_rng(seed)
+    label = df[label_col]
+    rows = []
+    for cluster in cluster_votes.columns:
+        mask = label.notna() & cluster_votes[cluster].notna()
+        y_true = label[mask].astype(int).to_numpy()
+        y_pred = cluster_votes.loc[mask, cluster].astype(int).to_numpy()
+        n = len(y_true)
+        boot_mccs = np.empty(n_boot)
+        for b in range(n_boot):
+            idx = rng.integers(0, n, size=n)
+            boot_mccs[b] = _fast_mcc(y_true[idx], y_pred[idx])
+        rows.append(
+            {
+                "cluster": cluster,
+                "mcc_mean": boot_mccs.mean(),
+                "mcc_median": np.median(boot_mccs),
+                "ci_lower_95": np.percentile(boot_mccs, 2.5),
+                "ci_upper_95": np.percentile(boot_mccs, 97.5),
+                "bootstrap_values": boot_mccs,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def bootstrap_cluster_pairwise_diff(
+    df: pd.DataFrame,
+    cluster_votes: pd.DataFrame,
+    cluster_a: str,
+    cluster_b: str,
+    label_col: str = "DMS_score_bin",
+    n_boot: int = 1000,
+    seed: int = 42,
+) -> dict:
+    """Paired bootstrap on the MCC difference (A - B) between two clusters.
+
+    Each bootstrap resample draws the same random variant indices for both
+    clusters (paired), restricted to variants where the label and both
+    clusters' majority votes are present.
+
+    p_value is the fraction of bootstrap replicates whose sign disagrees
+    with the observed (full-sample) point-estimate difference — a
+    non-parametric bootstrap significance test, not doubled for two-sidedness.
+
+    Returns
+    -------
+    dict with keys: cluster_a, cluster_b, n, observed_diff, mean_diff,
+    ci_lower, ci_upper, p_value.
+    """
+    rng = np.random.default_rng(seed)
+    label = df[label_col]
+    mask = label.notna() & cluster_votes[cluster_a].notna() & cluster_votes[cluster_b].notna()
+    y_true = label[mask].astype(int).to_numpy()
+    y_a = cluster_votes.loc[mask, cluster_a].astype(int).to_numpy()
+    y_b = cluster_votes.loc[mask, cluster_b].astype(int).to_numpy()
+    n = len(y_true)
+
+    observed_diff = _fast_mcc(y_true, y_a) - _fast_mcc(y_true, y_b)
+
+    diffs = np.empty(n_boot)
+    for i in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        diffs[i] = _fast_mcc(y_true[idx], y_a[idx]) - _fast_mcc(y_true[idx], y_b[idx])
+
+    if observed_diff >= 0:
+        p_value = float(np.mean(diffs < 0))
+    else:
+        p_value = float(np.mean(diffs > 0))
+
+    return {
+        "cluster_a": cluster_a,
+        "cluster_b": cluster_b,
+        "n": n,
+        "observed_diff": observed_diff,
+        "mean_diff": float(diffs.mean()),
+        "ci_lower": float(np.percentile(diffs, 2.5)),
+        "ci_upper": float(np.percentile(diffs, 97.5)),
+        "p_value": p_value,
+    }
