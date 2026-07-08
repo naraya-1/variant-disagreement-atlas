@@ -7,5 +7,5 @@ venv/
 .env
 .ipynb_checkpoints/
 .DS_Store
-results/figures/*.png
-!results/figures/.gitkeep
+# results/figures/ and results/tables/ are intentionally tracked (scientific record)
+# data/processed/ is excluded (large, reproducible from raw data)
