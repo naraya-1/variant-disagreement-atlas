@@ -1,0 +1,6 @@
+,protein_id,status,n_residues
+0,A0A192B1T2_9HIV1,no_alphafold_model,
+1,A4_HUMAN,ok,770.0
+2,ACE2_HUMAN,ok,805.0
+3,ADRB2_HUMAN,ok,413.0
+4,AMIE_PSEAE,ok,346.0

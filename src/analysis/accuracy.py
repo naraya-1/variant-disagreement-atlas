@@ -16,7 +16,7 @@ from sklearn.metrics import (
 _METRIC_COLS = ["accuracy", "precision", "recall", "f1", "mcc", "n"]
 
 
-def _binary_metrics(y_true: pd.Series, y_pred: pd.Series) -> dict:
+def binary_metrics(y_true: pd.Series, y_pred: pd.Series) -> dict:
     y_true = y_true.astype(int)
     y_pred = y_pred.astype(int)
     return {
@@ -52,7 +52,7 @@ def per_model_accuracy(
         if sub.empty:
             rows[model] = {k: np.nan for k in _METRIC_COLS}
             continue
-        rows[model] = _binary_metrics(sub[label_col], sub[col])
+        rows[model] = binary_metrics(sub[label_col], sub[col])
     return pd.DataFrame.from_dict(rows, orient="index")[_METRIC_COLS]
 
 
@@ -125,7 +125,7 @@ def per_cluster_accuracy(
             if mask.sum() == 0:
                 rows.append({"cluster": cluster, "dms_id": dms_id, **{k: np.nan for k in _METRIC_COLS}})
                 continue
-            metrics = _binary_metrics(sub_df.loc[mask, label_col], sub_votes.loc[mask, cluster])
+            metrics = binary_metrics(sub_df.loc[mask, label_col], sub_votes.loc[mask, cluster])
             rows.append({"cluster": cluster, "dms_id": dms_id, **metrics})
 
     _score(df, cluster_votes, "ALL")

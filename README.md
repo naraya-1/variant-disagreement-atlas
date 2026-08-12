@@ -18,18 +18,22 @@ download_data.py            # download ProteinGym benchmark data
 src/
   data/
     proteingym_loader.py    # load scores into a tidy DataFrame
-    alphafold_fetcher.py    # fetch AlphaFold structures (planned)
-    structural_features.py  # per-residue structural features (planned)
+    alphafold_fetcher.py    # fetch + cache AlphaFold DB structures
+    structural_features.py  # per-residue RSA / secondary structure / contact density (biotite)
     uniprot_extractor.py    # UniProt metadata (planned)
   analysis/
-    disagreement.py         # pairwise / ensemble disagreement metrics (planned)
-    clustering.py           # model clustering (planned)
-    meta_confidence.py      # meta-predictor of when consensus is reliable (planned)
+    disagreement.py         # pairwise / ensemble disagreement metrics
+    clustering.py            # model clustering (Ward on 1-kappa distance)
+    accuracy.py              # per-model / per-cluster accuracy vs. ground truth, bootstrap significance
+    meta_confidence.py       # structural correlates of disagreement + consensus trust map
   viz/
-    heatmaps.py             # disagreement heatmaps (planned)
+    heatmaps.py             # disagreement heatmaps
     structure_3d.py         # 3-D structure overlays (planned)
 notebooks/
-  01_pilot_exploration.ipynb  # summary stats, sanity checks
+  01_pilot_exploration.ipynb    # summary stats, sanity checks
+  02_pilot_disagreement.ipynb   # pairwise model agreement, disagreement scoring
+  03_cluster_accuracy.ipynb     # model clustering, cluster accuracy vs. ground truth
+  04_structural_correlates.ipynb # structural correlates of disagreement, consensus trust map
 app/
   streamlit_app.py            # interactive explorer (planned)
 data/
